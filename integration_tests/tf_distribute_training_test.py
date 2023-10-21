@@ -1,13 +1,19 @@
 import numpy as np
 import tensorflow as tf
 
-import keras
+import keras as keras
 from keras import layers
 from keras import losses
 from keras import metrics
 from keras import models
 from keras import optimizers
+from keras.callbacks import LearningRateScheduler
 
+
+def simple_scheduler():
+    def _schedule(epoch):
+        return 0.1
+    return LearningRateScheduler(_schedule)
 
 def test_model_fit():
     cpus = tf.config.list_physical_devices("CPU")
@@ -37,6 +43,7 @@ def test_model_fit():
     y = np.random.random((5000, 16))
     batch_size = 32
     epochs = 2
+    callbacks = [simple_scheduler()]
 
     # Fit from numpy arrays:
     with strategy.scope():
@@ -46,10 +53,10 @@ def test_model_fit():
             metrics=[metrics.MeanSquaredError()],
             # TODO(scottzhu): Find out where is the variable
             #  that is not created eagerly and break the usage of XLA.
-            jit_compile=False,
+            jit_compile=False
         )
         history = model.fit(
-            x, y, batch_size=batch_size, epochs=epochs, validation_split=0.2
+            x, y, batch_size=batch_size, epochs=epochs, validation_split=0.2, callbacks=callbacks
         )
 
     print("History:")
@@ -59,7 +66,9 @@ def test_model_fit():
     with strategy.scope():
         dataset = tf.data.Dataset.from_tensor_slices((x, y)).batch(batch_size)
         dataset = strategy.experimental_distribute_dataset(dataset)
-        history = model.fit(dataset, epochs=epochs)
+        history = model.fit(
+            dataset, epochs=epochs, callbacks=callbacks
+        )
 
     print("History:")
     print(history.history)
